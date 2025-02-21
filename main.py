@@ -1,24 +1,29 @@
 from src.cls.game import BlackjackGame
-from src.strategies.basic import get_blackjack_move
+from src.strategies.basic import get_blackjack_move, hi_lo_count
 from src.cls.card import Card  # for type checking deck cards
-from src.settings import SHUFFLE_PERCENTAGE, BET_AMOUNT
+from src.settings import SHUFFLE_PERCENTAGE, BET_AMOUNT, MAX_RESHUFFLE, ENABLE_CARD_COUNTING, MIN_BET, MAX_BET
+
 
 def print_cards(label, cards):
     # Build a string representation for a list of cards
     card_str = ' | '.join(str(card) for card in cards)
     print(f"{label}: {card_str}")
 
+
 def print_separator():
     print("=" * 50)
 
-def simulate_round(game):
+
+def simulate_round(game, running_count, bet_histogram):
     print_separator()
     print("New Round Starting")
     player = game.players[0]
-    # Reset player's hand for the round
+    # Reset player's hand for the new round
     player.hands[0].cards = []
-    # Set default bet
-    player.set_bet(BET_AMOUNT, hand_index=0)
+    # Compute adjusted bet and update histogram
+    adjusted_bet = get_bet_amount(running_count)
+    bet_histogram[adjusted_bet] = bet_histogram.get(adjusted_bet, 0) + 1
+    player.set_bet(adjusted_bet, hand_index=0)
 
     # Dealer hand is local (list of cards)
     dealer_hand = []
@@ -28,11 +33,15 @@ def simulate_round(game):
     for _ in range(2):
         card = game.deck.deal()
         if card:
+            if ENABLE_CARD_COUNTING:
+                running_count[0] += hi_lo_count(card.rank)
             player.hit(card)
     # Dealer gets two cards
     for _ in range(2):
         card = game.deck.deal()
         if card:
+            if ENABLE_CARD_COUNTING:
+                running_count[0] += hi_lo_count(card.rank)
             dealer_hand.append(card)
 
     # Dealer upcard (first card shown)
@@ -42,6 +51,9 @@ def simulate_round(game):
     print_cards("Player's Hand", player.hands[0].cards)
     print(f"Player's Total: {player.hands[0].get_value()}")
     print_cards("Dealer Upcard", dealer_hand[:1])
+
+    if ENABLE_CARD_COUNTING:
+        print(f"Running Count: {running_count[0]}")
 
     # Player's turn:
     hand = player.hands[0]
@@ -62,6 +74,8 @@ def simulate_round(game):
         elif move in ["H"]:  # Hit
             card = game.deck.deal()
             if card:
+                if ENABLE_CARD_COUNTING:
+                    running_count[0] += hi_lo_count(card.rank)
                 print(f"Player hits and receives: {card}")
                 player.hit(card)
                 print_cards("Player's Hand", hand.cards)
@@ -71,6 +85,8 @@ def simulate_round(game):
             player.set_bet(player.hands_bets[0] * 2, hand_index=0)
             card = game.deck.deal()
             if card:
+                if ENABLE_CARD_COUNTING:
+                    running_count[0] += hi_lo_count(card.rank)
                 print(f"Player doubles and receives: {card}")
                 player.hit(card)
                 print_cards("Player's Hand", hand.cards)
@@ -93,6 +109,8 @@ def simulate_round(game):
             card = game.deck.deal()
             if not card:
                 break
+            if ENABLE_CARD_COUNTING:
+                running_count[0] += hi_lo_count(card.rank)
             dealer_hand.append(card)
             dealer_total = sum(card.value() for card in dealer_hand)
             print(f"Dealer hits and receives: {card}")
@@ -124,20 +142,68 @@ def simulate_round(game):
     print(f"Outcome: {outcome}, Bet: {bet}, Player Money: {player.money}\n")
     return outcome
 
+
+def get_bet_amount(running_count):
+    # Compute adjusted bet based on the running count if card counting is enabled
+    if ENABLE_CARD_COUNTING:
+        # Increase bet for positive count, reduce for negative, using an increment of 2 per count point
+        adjusted_bet = BET_AMOUNT + running_count[0] * 2
+        return max(MIN_BET, min(adjusted_bet, MAX_BET))
+    return BET_AMOUNT
+
+
 def simulate_game():
     game = BlackjackGame(["Alice"])
+    player = game.players[0]
+    max_money = player.money
+    min_money = player.money
+    total_hands = 0
+    reshuffle_count = 0
+    running_count = [0]  # define once outside of rounds
+    bet_histogram = {}   # initialize bet amounts histogram
+
     total_cards = len(game.deck.cards)
     print(f"Starting game with {total_cards} cards in the deck.")
     round_num = 1
-    while 100 * len(game.deck.cards) / total_cards > 100 - SHUFFLE_PERCENTAGE:
+    while True:
         print_separator()
         print(f"Round {round_num} beginning...")
-        simulate_round(game)
+        simulate_round(game, running_count, bet_histogram)
+        total_hands += 1
+        max_money = max(max_money, player.money)
+        min_money = min(min_money, player.money)
         round_num += 1
+
+        # Check deck percentage and reshuffle if needed
+        remaining_pct = 100 * len(game.deck.cards) / total_cards
+        if remaining_pct <= 100 - SHUFFLE_PERCENTAGE:
+            if reshuffle_count < MAX_RESHUFFLE:
+                reshuffle_count += 1
+                print_separator()
+                print(f"Reshuffling deck (reshuffle #{reshuffle_count})...")
+                game.deck.reshuffle()
+                total_cards = len(game.deck.cards)
+                # Reset running count only upon deck reshuffle
+                if ENABLE_CARD_COUNTING:
+                    running_count[0] = 0
+            else:
+                print_separator()
+                print("Maximum reshuffles reached. Ending game.")
+                break
 
     print_separator()
     print("Game Over!")
-    print("Final Player Money:", game.players[0].money)
+    print("Final Player Money:", player.money)
+    print(f"Maximum Money Reached: {max_money}")
+    print(f"Minimum Money Reached: {min_money}")
+    print(f"Total Hands Played: {total_hands}")
+    print(f"Total Reshuffles: {reshuffle_count}")
+    if ENABLE_CARD_COUNTING:
+        print(f"Final Running Count: {running_count[0]}")
+    print("Bet Histogram:")
+    for bet, count in bet_histogram.items():
+        print(f"Bet: {bet} => {count} time(s)")
+
 
 if __name__ == "__main__":
     simulate_game()

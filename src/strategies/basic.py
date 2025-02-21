@@ -1,3 +1,21 @@
+def card_lookup_value(rank):
+    try:
+        return int(rank)
+    except ValueError:
+        if rank in ['J', 'Q', 'K']:
+            return 10
+        elif rank == 'A':
+            return 'A'
+
+# Added hi_lo_count function for basic card counting using the Hi-Lo system
+def hi_lo_count(rank):
+    if rank in ['2', '3', '4', '5', '6']:
+        return 1
+    elif rank in ['10', 'J', 'Q', 'K', 'A']:
+        return -1
+    else:
+        return 0
+
 # Combined strategy table for hard and soft totals
 blackjack_strategy = {
     'hard': {
@@ -9,6 +27,7 @@ blackjack_strategy = {
         16: {2: "S", 3: "S", 4: "S", 5: "S", 6: "S", 7: "H", 8: "H", 9: "H", 10: "H", 'A': "H"},
         15: {2: "S", 3: "S", 4: "S", 5: "S", 6: "S", 7: "H", 8: "H", 9: "H", 10: "H", 'A': "H"},
         14: {2: "S", 3: "S", 4: "S", 5: "S", 6: "S", 7: "H", 8: "H", 9: "H", 10: "H", 'A': "H"},
+        13: {2: "S", 3: "S", 4: "S", 5: "S", 6: "S", 7: "H", 8: "H", 9: "H", 10: "H", 'A': "H"},
         12: {2: "H", 3: "H", 4: "S", 5: "S", 6: "S", 7: "H", 8: "H", 9: "H", 10: "H", 'A': "H"},
         11: {2: "D", 3: "D", 4: "D", 5: "D", 6: "D", 7: "D", 8: "D", 9: "D", 10: "D", 'A': "D"},
         10: {2: "D", 3: "D", 4: "D", 5: "D", 6: "D", 7: "D", 8: "D", 9: "D", 10: "H", 'A': "H"},
@@ -62,19 +81,22 @@ def get_blackjack_move(player_hand, dealer_upcard, player_total):
     has_ace = any(card['rank'] == 'A' for card in player_hand)
 
     # if upcard is J, Q, K
-    upcard_value = 10 if upcard in ['J', 'Q', 'K'] else upcard
+    upcard_value = 10 if upcard in ['J', 'Q', 'K'] else card_lookup_value(upcard)
 
     result = None
 
     # Handle soft totals
     # New case: if player has 2 cards and both are aces
     if len(player_hand) == 2 and player_hand[0]['rank'] == 'A' and player_hand[1]['rank'] == 'A':
+        print('A,A')
         result = blackjack_strategy['soft'].get('A,A', {}).get(upcard_value, "Invalid")  # Until split is implemented, treat as hit
 
     elif has_ace and player_total < 21 and len(player_hand) == 2:
+        print('Soft')
         result = blackjack_strategy['soft'].get(f"A,{player_total - 11}", {}).get(upcard_value, "Invalid")
 
     else:
+        print('Hard')
         # Handle hard totals
         result = blackjack_strategy['hard'].get(player_total, {}).get(upcard_value, "Invalid")
 

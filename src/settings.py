@@ -2,11 +2,11 @@
 NUM_DECKS = 6
 
 # Minimum and maximum bet amounts
-MIN_BET = 5
-MAX_BET = 500
+MIN_BET = 10
+MAX_BET = 100
 
 # Starting bet amount
-BET_AMOUNT = 5
+BET_AMOUNT = 20
 
 # Blackjack payout ratio (e.g., 3:2)
 BLACKJACK_PAYOUT = 1.5
@@ -21,7 +21,10 @@ NUM_PLAYERS = 1
 INITIAL_BALANCE = 1000
 
 # Shuffle the deck after dealing this percentage of cards
-SHUFFLE_PERCENTAGE = 75
+SHUFFLE_PERCENTAGE = 25
 
 # Enable or disable card counting
-ENABLE_CARD_COUNTING = False
+ENABLE_CARD_COUNTING = True
+
+# New setting for maximum number of reshuffles
+MAX_RESHUFFLE = 5
