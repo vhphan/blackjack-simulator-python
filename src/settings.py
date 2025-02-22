@@ -27,4 +27,4 @@ SHUFFLE_PERCENTAGE = 25
 ENABLE_CARD_COUNTING = True
 
 # New setting for maximum number of reshuffles
-MAX_RESHUFFLE = 5
+MAX_RESHUFFLE = 30

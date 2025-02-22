@@ -1,7 +1,9 @@
+import csv
+
 from src.cls.game import BlackjackGame
 from src.strategies.basic import get_blackjack_move, hi_lo_count
 from src.cls.card import Card  # for type checking deck cards
-from src.settings import SHUFFLE_PERCENTAGE, BET_AMOUNT, MAX_RESHUFFLE, ENABLE_CARD_COUNTING, MIN_BET, MAX_BET
+from src.settings import SHUFFLE_PERCENTAGE, BET_AMOUNT, MAX_RESHUFFLE, ENABLE_CARD_COUNTING, MIN_BET, MAX_BET, INITIAL_BALANCE
 
 
 def print_cards(label, cards):
@@ -204,6 +206,43 @@ def simulate_game():
     for bet, count in bet_histogram.items():
         print(f"Bet: {bet} => {count} time(s)")
 
+    # Compute total money won (profit)
+    money_won = player.money - INITIAL_BALANCE
+
+    # Build a summary dictionary and format bet_histogram as a string
+    histogram_str = "; ".join(f"{bet}:{count}" for bet, count in bet_histogram.items())
+    summary = {
+        'final_money': player.money,
+        'max_money': max_money,
+        'min_money': min_money,
+        'total_hands': total_hands,
+        'total_reshuffles': reshuffle_count,
+        'final_running_count': running_count[0] if ENABLE_CARD_COUNTING else None,
+        # 'bet_histogram': histogram_str,
+        'money_won': money_won
+    }
+    return summary
+
+
+def simulate_multiple_runs(num_runs, output_csv='simulation_results.csv'):
+    results = []
+    for i in range(num_runs):
+        print_separator()
+        print(f"Starting simulation run #{i+1}...")
+        summary = simulate_game()
+        summary['run'] = i + 1
+        results.append(summary)
+    # Write results to CSV file
+    fieldnames = ['run', 'final_money', 'max_money', 'min_money', 'total_hands',
+                  'total_reshuffles', 'final_running_count', 'money_won']
+    with open(output_csv, 'w', newline='') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        for res in results:
+            writer.writerow(res)
+    print_separator()
+    print(f"Simulation complete. Results saved to {output_csv}")
 
 if __name__ == "__main__":
-    simulate_game()
+    # To run multiple simulations, adjust the number below
+    simulate_multiple_runs(100)
