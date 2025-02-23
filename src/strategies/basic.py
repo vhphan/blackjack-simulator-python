@@ -72,32 +72,31 @@ blackjack_strategy = {
 
 # Function to get the move for hard or soft totals
 def get_blackjack_move(player_hand, dealer_upcard, player_total):
+
+    # Check for pair splitting if exactly 2 cards and both have the same rank.
+    # if len(player_hand) == 2 and player_hand[0]['rank'] == player_hand[1]['rank']:
+    #     upcard_value = 10 if dealer_upcard['rank'] in ['J', 'Q', 'K'] else card_lookup_value(dealer_upcard['rank'])
+    #     action = blackjack_strategy['pairSplitting'].get(f"{player_hand[0]['rank']},{player_hand[1]['rank']}", {}).get(upcard_value, "Invalid")
+    #     if action != "Invalid" and action == "Y":
+    #         return "split"
+
     if player_total == 21:
         return "S"
 
     upcard = 'A' if dealer_upcard['rank'] == 'A' else dealer_upcard['rank']
-
-    # Calculate player total
     has_ace = any(card['rank'] == 'A' for card in player_hand)
-
-    # if upcard is J, Q, K
     upcard_value = 10 if upcard in ['J', 'Q', 'K'] else card_lookup_value(upcard)
 
     result = None
-
     # Handle soft totals
-    # New case: if player has 2 cards and both are aces
     if len(player_hand) == 2 and player_hand[0]['rank'] == 'A' and player_hand[1]['rank'] == 'A':
         print('A,A')
-        result = blackjack_strategy['soft'].get('A,A', {}).get(upcard_value, "Invalid")  # Until split is implemented, treat as hit
-
+        result = blackjack_strategy['soft'].get('A,A', {}).get(upcard_value, "Invalid")
     elif has_ace and player_total < 21 and len(player_hand) == 2:
         print('Soft')
         result = blackjack_strategy['soft'].get(f"A,{player_total - 11}", {}).get(upcard_value, "Invalid")
-
     else:
         print('Hard')
-        # Handle hard totals
         result = blackjack_strategy['hard'].get(player_total, {}).get(upcard_value, "Invalid")
 
     if result == 'Invalid':

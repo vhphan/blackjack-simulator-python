@@ -15,7 +15,7 @@ BLACKJACK_PAYOUT = 1.5
 DEALER_STANDS_ON_SOFT_17 = True
 
 # Number of players in the game
-NUM_PLAYERS = 1
+NUM_PLAYERS = 2
 
 # Initial balance for each player
 INITIAL_BALANCE = 1000
