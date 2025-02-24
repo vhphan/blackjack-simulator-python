@@ -90,13 +90,13 @@ def get_blackjack_move(player_hand, dealer_upcard, player_total):
     result = None
     # Handle soft totals
     if len(player_hand) == 2 and player_hand[0]['rank'] == 'A' and player_hand[1]['rank'] == 'A':
-        print('A,A')
+        # print('A,A')
         result = blackjack_strategy['soft'].get('A,A', {}).get(upcard_value, "Invalid")
     elif has_ace and player_total < 21 and len(player_hand) == 2:
-        print('Soft')
+        # print('Soft')
         result = blackjack_strategy['soft'].get(f"A,{player_total - 11}", {}).get(upcard_value, "Invalid")
     else:
-        print('Hard')
+        # print('Hard')
         result = blackjack_strategy['hard'].get(player_total, {}).get(upcard_value, "Invalid")
 
     if result == 'Invalid':
