@@ -9,4 +9,5 @@ dependencies = [
     "pygame>=2.6.1",
     "pip>=25.0.1",
     "jupyter>=1.1.1",
+    "loguru>=0.7.3",
 ]

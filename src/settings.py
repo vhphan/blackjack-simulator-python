@@ -28,3 +28,7 @@ ENABLE_CARD_COUNTING = True
 
 # New setting for maximum number of reshuffles
 MAX_RESHUFFLE = 15
+
+TOTAL_RUNS=100
+
+MAX_SPLIT_ALLOWED = 3

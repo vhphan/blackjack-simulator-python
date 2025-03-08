@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="Python 3.11.6 WSL (Ubuntu): (/home/vhphan/projects/my_books/advanced-python-projects/blackjack-simulator/.venv/bin/python)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.11.6 WSL (Ubuntu): (/home/vhphan/projects/my_books/advanced-python-projects/blackjack-simulator/.venv/bin/python)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.11 virtualenv at ~/projects/my_books/advanced-python-projects/blackjack-simulator/.venv" project-jdk-type="Python SDK" />
 </project>

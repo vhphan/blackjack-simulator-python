@@ -1,26 +1,28 @@
 import csv
-import os  # NEW import
 
 from src.cls.game import BlackjackGame
 from src.cls.hand import Hand
+from src.helpers.simulation_logger import logger
+from src.settings import (SHUFFLE_PERCENTAGE,
+                          BET_AMOUNT,
+                          MAX_RESHUFFLE,
+                          ENABLE_CARD_COUNTING,
+                          MIN_BET, MAX_BET,
+                          NUM_PLAYERS, TOTAL_RUNS, MAX_SPLIT_ALLOWED)
 from src.strategies.basic import get_blackjack_move, hi_lo_count
-from src.cls.card import Card  # for type checking deck cards
-from src.settings import SHUFFLE_PERCENTAGE, BET_AMOUNT, MAX_RESHUFFLE, ENABLE_CARD_COUNTING, MIN_BET, MAX_BET, \
-    INITIAL_BALANCE, NUM_PLAYERS
-from src.helpers.simulation_logger import SimulationLogger  # NEW import
 
 
 def print_cards(label, cards):
     # Build a string representation for a list of cards
     card_str = ' | '.join(str(card) for card in cards)
-    print(f"{label}: {card_str}")
+    logger.log(f"{label}: {card_str}")
 
 
 def print_separator():
-    print("=" * 50)
+    logger.log("=" * 50)
 
 
-def handle_split(player, hand_index, game):
+def handle_split(player, hand_index, game, running_count):
     # Split the hand into two separate hands
     hand = player.hands[hand_index]
     # add new hand
@@ -29,10 +31,19 @@ def handle_split(player, hand_index, game):
     card = hand.cards.pop()
     player.hands[hand_index + 1].add_card(card)
 
+    # deal a new card to each hand
+    for i in range(hand_index, hand_index + 2):
+        card = game.deck.deal()
+        if card:
+            player.hands[i].add_card(card)
+            if ENABLE_CARD_COUNTING:
+                running_count[0] += hi_lo_count(card.rank)
+        else:
+            break
 
-def simulate_round(game, running_count, bet_histogram, logger):
+
+def simulate_round(game, running_count, bet_histogram):
     print_separator()
-    logger.log("="*50)
     logger.log("New Round Starting")
     # Reinitialize players for new round
     for player in game.players:
@@ -40,7 +51,9 @@ def simulate_round(game, running_count, bet_histogram, logger):
         adjusted_bet = get_bet_amount(running_count)
         bet_histogram[adjusted_bet] = bet_histogram.get(adjusted_bet, 0) + 1
         player.hands_bets = [adjusted_bet]
+    # Dealer hand is local (list of cards)
     dealer_hand = []
+
     # Deal initial cards for each player
     for player in game.players:
         for _ in range(2):
@@ -48,37 +61,37 @@ def simulate_round(game, running_count, bet_histogram, logger):
             if card:
                 if ENABLE_CARD_COUNTING:
                     running_count[0] += hi_lo_count(card.rank)
-                player.hit(card)
-                logger.log(f"{player.name} receives: {card}")
-    # Dealer deal
+                player.hands[0].add_card(card)
+
+    # Deal dealer two cards
     for _ in range(2):
         card = game.deck.deal()
         if card:
             if ENABLE_CARD_COUNTING:
                 running_count[0] += hi_lo_count(card.rank)
             dealer_hand.append(card)
-            logger.log(f"Dealer receives: {card}")
+
     dealer_upcard = {'rank': dealer_hand[0].rank, 'suit': dealer_hand[0].suit.value}
-    # Log initial state
+
+    # Show initial state for each player
     for player in game.players:
-        logger.log(f"{player.name}'s Hand: " +
-                   ' | '.join(str(c) for c in player.hands[0].cards))
-        logger.log(f"{player.name}'s Total: {player.hands[0].get_value()}")
-    logger.log("Dealer Upcard: " + str(dealer_hand[0]))
+        print_cards(f"{player.name}'s Hand", player.hands[0].cards)
+        logger.log(f"{player.name}'s Total: {player.hands[0].value}")
+    print_cards("Dealer Upcard", dealer_hand[:1])
+
     if ENABLE_CARD_COUNTING:
         logger.log(f"Running Count: {running_count[0]}")
-    # Process player's turns
+
+    # Player's turn for each hand
     for player in game.players:
-        i = 0
-        while i < len(player.hands):
-            hand = player.hands[i]
-            play_hand(player, hand, dealer_upcard, game, running_count, logger)
-            i += 1
-    # Dealer turn
-    if any(hand.get_value() <= 21 for player in game.players for hand in player.hands):
-        logger.log("="*50)
+        # Using while-loop to process any newly added hands (from splits)
+        play_hand(player, player.hands[0], dealer_upcard, game, running_count)
+
+    # Dealer's turn if any player hasn't busted
+    if any(hand.value <= 21 for player in game.players for hand in player.hands):
+        print_separator()
         logger.log("Dealer's Turn:")
-        logger.log("Dealer's Hand: " + ' | '.join(str(c) for c in dealer_hand))
+        print_cards("Dealer's Hand", dealer_hand)
         dealer_total = sum(card.value() for card in dealer_hand)
         logger.log(f"Dealer's Total: {dealer_total}")
         while dealer_total < 17:
@@ -90,31 +103,31 @@ def simulate_round(game, running_count, bet_histogram, logger):
             dealer_hand.append(card)
             dealer_total = sum(card.value() for card in dealer_hand)
             logger.log(f"Dealer hits and receives: {card}")
-            logger.log("Dealer's Hand: " + ' | '.join(str(c) for c in dealer_hand))
+            print_cards("Dealer's Hand", dealer_hand)
             logger.log(f"Dealer's New Total: {dealer_total}")
     else:
         dealer_total = sum(card.value() for card in dealer_hand)
         logger.log("Dealer wins by all players bust.")
-    # Outcome determination (logging similar to print statements)
+
+    # Determine outcome for each player's hand
     for player in game.players:
         for hand, bet in zip(player.hands, player.hands_bets):
-            hand_value = hand.get_value()
-            if hand_value > 21:
+            if hand.value > 21:
                 outcome = "lose"
                 player.money -= bet
-            elif dealer_total > 21 or hand_value > dealer_total:
+            elif dealer_total > 21 or hand.value > dealer_total:
                 outcome = "win"
                 player.money += bet
-            elif hand_value == dealer_total:
+            elif hand.value == dealer_total:
                 outcome = "push"
             else:
                 outcome = "lose"
                 player.money -= bet
-            logger.log("="*50)
+            print_separator()
             logger.log(f"{player.name}'s Round Summary:")
-            logger.log("Final Hand: " + ' | '.join(str(c) for c in hand.cards))
-            logger.log(f"Hand Total: {hand_value}")
-            logger.log("Dealer's Final Hand: " + ' | '.join(str(c) for c in dealer_hand))
+            print_cards("Final Hand", hand.cards)
+            logger.log(f"Hand Total: {hand.value}")
+            print_cards("Dealer's Final Hand", dealer_hand)
             logger.log(f"Dealer Total: {dealer_total}")
             logger.log(f"Outcome: {outcome}, Bet: {bet}, Player Money: {player.money}\n")
     return None
@@ -130,48 +143,66 @@ def get_bet_amount(running_count):
 
 
 # New function to play a single hand
-def play_hand(player, hand, dealer_upcard, game, running_count, logger):
+def play_hand(player, hand, dealer_upcard, game, running_count, split_count=0):
     while True:
-        total = hand.get_value()
-        if total > 21:
+
+        if hand.value > 21:
             logger.log("Player busts!")
             break
+
         player_hand_dict = [{'rank': card.rank, 'suit': card.suit.value} for card in hand.cards]
-        move = get_blackjack_move(player_hand_dict, dealer_upcard, total)
+
+        move = get_blackjack_move(player_hand_dict, dealer_upcard, hand.value)
+
+        if move == "split" and split_count > MAX_SPLIT_ALLOWED:
+            move = "H"  # Change move to hit if split count exceeds MAX_SPLIT_ALLOWED
         if move == "split":
             logger.log("Player splits the hand.")
-            handle_split(player, 0, game)
-            logger.log("Player's Hands after split: " +
-                       str([str(h.cards) for h in player.hands]))
+
+            # Find the index of the current hand by iterating over the hands
+            hand_index = next(i for i, h in enumerate(player.hands) if h == hand)
+            handle_split(player, hand_index, game, running_count)
+
+            print_cards("Player's Hands", [hand.cards for hand in player.hands])
+
+            # Recursive call to play the newly split hands
+            old_hand = player.hands[hand_index]
+            play_hand(player, old_hand, dealer_upcard, game, running_count, split_count + 1)
+
+            new_hand = player.hands[hand_index + 1]
+            play_hand(player, new_hand, dealer_upcard, game, running_count, split_count + 1)
+
             break
+
         logger.log(f"Suggested move: {move}")
-        if move in ["S"]:
+        if move in ["S"]:  # Stand
             logger.log("Player stands.")
             break
-        elif move in ["H"]:
+
+        elif move in ["H"]:  # Hit
             card = game.deck.deal()
             if card:
                 if ENABLE_CARD_COUNTING:
                     running_count[0] += hi_lo_count(card.rank)
                 logger.log(f"Player hits and receives: {card}")
-                player.hit(card)
-                logger.log("Player's Hand: " + ' | '.join(str(c) for c in hand.cards))
+                hand.add_card(card)
+                print_cards("Player's Hand", hand.cards)
             else:
                 break
-        elif move in ["D", "Ds"]:
+
+        elif move in ["D", "Ds"]:  # Double
             player.set_bet(player.hands_bets[0] * 2, hand_index=0)
             card = game.deck.deal()
             if card:
                 if ENABLE_CARD_COUNTING:
                     running_count[0] += hi_lo_count(card.rank)
                 logger.log(f"Player doubles and receives: {card}")
-                player.hit(card)
-                logger.log("Player's Hand: " + ' | '.join(str(c) for c in hand.cards))
+                hand.add_card(card)
             break
         else:
             logger.log("Unexpected move. Player stands by default.")
             break
-    return hand.get_value()
+    return hand.value
 
 
 def simulate_game():
@@ -187,13 +218,14 @@ def simulate_game():
     min_reached = {p.name: p.money for p in game.players}
 
     total_cards = len(game.deck.cards)
-    print(f"Starting game with {total_cards} cards in the deck.")
+    logger.log(f"Starting game with {total_cards} cards in the deck.")
     round_num = 1
-    logger = SimulationLogger(os.path.join(os.getcwd(), "simulation_log.txt"))  # Updated logger file path
     while True:
-        logger.log("="*50)
+        print_separator()
         logger.log(f"Round {round_num} beginning...")
-        simulate_round(game, running_count, bet_histogram, logger)
+
+        simulate_round(game, running_count, bet_histogram)
+
         total_hands += 1
 
         # Update min_reached for each player
@@ -209,29 +241,31 @@ def simulate_game():
             if reshuffle_count < MAX_RESHUFFLE:
                 reshuffle_count += 1
                 print_separator()
-                print(f"Reshuffling deck (reshuffle #{reshuffle_count})...")
+                logger.log(f"Reshuffling deck (reshuffle #{reshuffle_count})...")
                 game.deck.reshuffle()
                 total_cards = len(game.deck.cards)
                 if ENABLE_CARD_COUNTING:
                     running_count[0] = 0
             else:
                 print_separator()
-                print("Maximum reshuffles reached. Ending game.")
+                logger.log("Maximum reshuffles reached. Ending game.")
                 break
 
     print_separator()
-    print("Game Over!")
+    logger.log("Game Over!")
     for p in game.players:
-        print(f"Final Money for {p.name}: {p.money}")
+        logger.log(f"Final Money for {p.name}: {p.money}")
     # Compute overall minimum using the tracked values
     min_player_name, overall_min = min(min_reached.items(), key=lambda item: item[1])
     max_player = max(game.players, key=lambda p: p.money)
-    print(f"Player with Maximum Money: {max_player.name} ({max_player.money})")
-    print(f"Minimum Money Reached During Simulation: {overall_min} (by {min_player_name})")
-    print(f"Total Hands Played: {total_hands}")
-    print(f"Total Reshuffles: {reshuffle_count}")
+    logger.log(f"Player with Maximum Money: {max_player.name} ({max_player.money})")
+    logger.log(f"Minimum Money Reached During Simulation: {overall_min} (by {min_player_name})")
+    logger.log(f"Total Hands Played: {total_hands}")
+    logger.log(f"Total Reshuffles: {reshuffle_count}")
+
     if ENABLE_CARD_COUNTING:
-        print(f"Final Running Count: {running_count[0]}")
+        logger.log(f"Final Running Count: {running_count[0]}")
+
     print("Bet Histogram:")
     for bet, count in bet_histogram.items():
         print(f"Bet: {bet} => {count} time(s)")
@@ -252,29 +286,24 @@ def simulate_game():
     return summary
 
 
-def simulate_multiple_runs(num_runs, output_csv='simulation_results.csv'):
+def simulate_multiple_runs(num_runs, output_csv='src/outputs/simulation_results.csv'):
     results = []
     for i in range(num_runs):
         print_separator()
-        print(f"Starting simulation run #{i + 1}...")
-        summary = simulate_game()
-        summary['run'] = i + 1
-        results.append(summary)
-    # Update fieldnames to include all players' final money
+        logger.log(f"Starting simulation run #{i + 1}...")
+        result = simulate_game()
+        result['run'] = i + 1
+        results.append(result)
     base_fields = results[0].keys()
-    # Assuming player names are "Player1", "Player2", ..., based on NUM_PLAYERS
-    # extra_fields = [f'final_money_Player{i}' for i in range(1, NUM_PLAYERS + 1)]
-    # fieldnames = base_fields + extra_fields
-    with open(output_csv, 'w', newline='') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=base_fields)
+    with open(output_csv, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=base_fields)
         writer.writeheader()
         for res in results:
             writer.writerow(res)
     print_separator()
-    print(f"Simulation complete. Results saved to {output_csv}")
+    logger.log(f"Simulation complete. Results saved to {output_csv}")
 
 
 if __name__ == "__main__":
     # To run multiple simulations, adjust the number below
-    simulate_multiple_runs(100)
-
+    simulate_multiple_runs(TOTAL_RUNS)

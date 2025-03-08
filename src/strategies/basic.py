@@ -74,11 +74,11 @@ blackjack_strategy = {
 def get_blackjack_move(player_hand, dealer_upcard, player_total):
 
     # Check for pair splitting if exactly 2 cards and both have the same rank.
-    # if len(player_hand) == 2 and player_hand[0]['rank'] == player_hand[1]['rank']:
-    #     upcard_value = 10 if dealer_upcard['rank'] in ['J', 'Q', 'K'] else card_lookup_value(dealer_upcard['rank'])
-    #     action = blackjack_strategy['pairSplitting'].get(f"{player_hand[0]['rank']},{player_hand[1]['rank']}", {}).get(upcard_value, "Invalid")
-    #     if action != "Invalid" and action == "Y":
-    #         return "split"
+    if len(player_hand) == 2 and player_hand[0]['rank'] == player_hand[1]['rank']:
+        upcard_value = 10 if dealer_upcard['rank'] in ['J', 'Q', 'K'] else card_lookup_value(dealer_upcard['rank'])
+        action = blackjack_strategy['pairSplitting'].get(f"{player_hand[0]['rank']},{player_hand[1]['rank']}", {}).get(upcard_value, "Invalid")
+        if action != "Invalid" and action == "Y":
+            return "split"
 
     if player_total == 21:
         return "S"

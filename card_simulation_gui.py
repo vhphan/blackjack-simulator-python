@@ -1,5 +1,6 @@
 # %%
 import os
+
 os.environ['SDL_AUDIODRIVER'] = 'dummy'  # disable sound to avoid ALSA errors
 import re, pygame, sys
 
@@ -9,7 +10,8 @@ SCREEN_WIDTH, SCREEN_HEIGHT = 1024, 768
 BACKGROUND_COLOR = (0, 100, 0)
 FPS = 30
 CARDS_FOLDER = os.path.join(os.getcwd(), "cards")  # Place your card images here
-LOG_FILE = os.path.join(os.getcwd(), "simulation_log.txt")
+LOG_FILE = os.path.join(os.getcwd(), "src/outputs/simulation_log.txt")
+
 
 # %%
 # --- Utility: map card text to image filename ---
@@ -22,9 +24,10 @@ def get_card_image_filename(card_str):
     rank, suit = m.groups()
     suit_map = {"♣️": "clubs", "♦️": "diamonds", "♥️": "hearts", "♠️": "spades"}
     suit = suit_map.get(suit, "unknown")
-    # Updated filename format: suit_rank (e.g., clubs_10, diamonds_K)
-    filename = f"{suit}_{rank.upper()}.png"
+    # Updated filename format to use lower case rank to match png filenames in the cards folder
+    filename = f"{suit}_{rank}.png"
     return os.path.join(CARDS_FOLDER, filename)
+
 
 # --- Parse simulation_log.txt into rounds ---
 def parse_simulation_log():
@@ -56,8 +59,9 @@ def parse_simulation_log():
         rounds.append(current_round)
     return rounds
 
+
 # --- Render a set of cards horizontally ---
-def render_cards(screen, card_str_list, start_pos, card_size=(100,145), gap=10):
+def render_cards(screen, card_str_list, start_pos, card_size=(100, 145), gap=10):
     x, y = start_pos
     for card_str in card_str_list:
         img_file = get_card_image_filename(card_str)
@@ -66,13 +70,15 @@ def render_cards(screen, card_str_list, start_pos, card_size=(100,145), gap=10):
             card_img = pygame.transform.smoothscale(card_img, card_size)
         else:
             # fallback: render a placeholder rectangle with text
+            print(f"Card image not found: {card_str}")
             card_img = pygame.Surface(card_size)
-            card_img.fill((255,255,255))
+            card_img.fill((255, 255, 255))
             font = pygame.font.SysFont(None, 24)
-            text_surf = font.render(card_str, True, (0,0,0))
-            card_img.blit(text_surf, (5,5))
+            text_surf = font.render(card_str, True, (0, 0, 0))
+            card_img.blit(text_surf, (5, 5))
         screen.blit(card_img, (x, y))
         x += card_size[0] + gap
+
 
 # %%
 def main():
@@ -103,9 +109,9 @@ def main():
 
         screen.fill(BACKGROUND_COLOR)
         cr = rounds[current_index]
-        round_text = f"Round: {current_index+1}"
-        text_surf = font.render(round_text, True, (255,255,0))
-        screen.blit(text_surf, (20,20))
+        round_text = f"Round: {current_index + 1}"
+        text_surf = font.render(round_text, True, (255, 255, 0))
+        screen.blit(text_surf, (20, 20))
 
         # Parse hand strings into lists
         def get_hand_list(hand_str):
@@ -115,21 +121,33 @@ def main():
         # Render Player1 final hand
         if "player1" in cr and "final_hand" in cr["player1"]:
             p1_hand = get_hand_list(cr["player1"]["final_hand"])
-            text = font.render("Player1:", True, (255,255,255))
+            text = font.render("Player1:", True, (255, 255, 255))
             screen.blit(text, (20, 80))
             render_cards(screen, p1_hand, (20, 120))
+            # Render Player1 bet and money
+            if "bet" in cr["player1"] and "money" in cr["player1"]:
+                bet_text = font.render(f"Bet: {cr['player1']['bet']}", True, (255, 255, 255))
+                money_text = font.render(f"Money: {cr['player1']['money']}", True, (255, 255, 255))
+                screen.blit(bet_text, (20, 270))
+                screen.blit(money_text, (20, 310))
 
         # Render Player2 final hand
         if "player2" in cr and "final_hand" in cr["player2"]:
             p2_hand = get_hand_list(cr["player2"]["final_hand"])
-            text = font.render("Player2:", True, (255,255,255))
+            text = font.render("Player2:", True, (255, 255, 255))
             screen.blit(text, (20, 300))
             render_cards(screen, p2_hand, (20, 340))
+            # Render Player2 bet and money
+            if "bet" in cr["player2"] and "money" in cr["player2"]:
+                bet_text = font.render(f"Bet: {cr['player2']['bet']}", True, (255, 255, 255))
+                money_text = font.render(f"Money: {cr['player2']['money']}", True, (255, 255, 255))
+                screen.blit(bet_text, (20, 490))
+                screen.blit(money_text, (20, 530))
 
         # Render Dealer final hand
         if "dealer_final" in cr:
             dealer_hand = get_hand_list(cr["dealer_final"])
-            text = font.render("Dealer:", True, (255,255,255))
+            text = font.render("Dealer:", True, (255, 255, 255))
             screen.blit(text, (20, 520))
             render_cards(screen, dealer_hand, (20, 560))
 
@@ -137,6 +155,7 @@ def main():
         clock.tick(FPS)
     pygame.quit()
     sys.exit()
+
 
 if __name__ == "__main__":
     main()
